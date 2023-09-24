@@ -34,7 +34,7 @@ undefined8 main(void)
   ulong i;
   char input [136];
   long stackCanary;
- 
+
   stackCanary = *(long *)(in_FS_OFFSET + 0x28);
   printf("Enter the flag\n>>> ");
   __isoc99_scanf(&DAT_00100a78,input);
@@ -67,7 +67,7 @@ So we can see, it starts off by scanning in input. If our input is less than `0x
 
 ```
                              desiredOutput                                   XREF[2]:     main:0010096b(*),
-                                                                                          main:00100972(R)  
+                                                                                          main:00100972(R)
         003014e0 01              ??         01h
         003014e1 00              ??         00h
         003014e2 00              ??         00h
@@ -110,7 +110,7 @@ long transformFunc(char input)
 
 {
   long i;
- 
+
   i = 0;
   while ((i != -1 && ((int)input != *(int *)(&lookup + i * 4)))) {
     if ((int)input < *(int *)(&lookup + i * 4)) {
@@ -134,7 +134,7 @@ Here we can see that it essentially just takes a character, and looks at what it
                                                                                           transformFunc:00100844(*),
                                                                                           transformFunc:0010084b(R),
                                                                                           transformFunc:00100873(*),
-                                                                                          transformFunc:0010087a(R)  
+                                                                                          transformFunc:0010087a(R)
         00301020 77              ??         77h    w
         00301021 00              ??         00h
         00301022 00              ??         00h
@@ -234,3 +234,10 @@ Correct!
 ```
 
 Just like that, we solved the challenge!
+
+## References
+
+- [Ghidra: Scripting (Python) (a quick introduction by implementing pipeDecoder.py)](https://www.youtube.com/watch?v=WLXlq3lvUGs&ab_channel=0x6d696368)
+- [Ghidrathon: Snaking Ghidra with Python 3 Scripting](https://www.mandiant.com/resources/blog/ghidrathon-snaking-ghidra-python-3-scripting)
+- [GhidraScript SDK Docs](https://ghidra.re/ghidra_docs/api/ghidra/app/script/GhidraScript.html)
+- [#Hacktivity2022 // Automating Binary Analysis with Ghidra's P-Code by Gergely Révay](https://www.youtube.com/watch?v=uWzcIAKmOck&ab_channel=Hacktivity-ITSecurityFestival)

