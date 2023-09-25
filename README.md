@@ -358,3 +358,6 @@ Here is the index for all of the content in this course. Feel free to go through
 - [GDB cheat sheet](https://gist.github.com/rkubik/b96c23bd8ed58333de37f2b8cd052c30)
 - [Exploit Notes](https://exploit-notes.hdks.org/exploit/binary-exploitation/)
 - [Reverse Engineering](https://github.com/mytechnotalent/Reverse-Engineering)
+- [RMS's gdb Debugger Tutorial](http://www.unknownroad.com/rtfm/gdbtut/gdbtoc.html)
+- [Buffer overflow demonstration in Kali Linux, based on the Computerphile video](https://gist.github.com/apolloclark/6cffb33f179cc9162d0a)
+- [Exploit Development: Stack Buffer Overflow – Bypass NX/DEP](https://stuffwithaurum.com/2015/06/24/exploit-development-stack-buffer-overflow-bypass-nxdep/)
